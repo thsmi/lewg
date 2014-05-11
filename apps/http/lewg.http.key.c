@@ -115,10 +115,12 @@ static lewgReturn_t lewgPrintLifeCycle(char* code)
   LEWG_ENSURE_SUCCESS(rv);
 
   while(lewgFileReadln(&fh, &buf[0], 256) == LEWG_SUCCESS)
-    printf("  %s",&buf[0]);
+    lewgStdOutPrint("  %s",&buf[0]);
 
   lewgCloseFile(&fh);
-  
+
+  lewgStdOutPrint("\n");
+
   return LEWG_SUCCESS;
 }
 
@@ -141,9 +143,11 @@ static lewgReturn_t lewgPrintComment(char* code)
   LEWG_ENSURE_SUCCESS(rv);
 
   while(lewgFileReadln(&fh, &buf[0], 1024) == LEWG_SUCCESS)
-    printf("  %s",&buf[0]);
+    lewgStdOutPrint("  %s",&buf[0]);
 
   lewgCloseFile(&fh);
+
+  lewgStdOutPrint("\n");
 
   return LEWG_SUCCESS;
 }
@@ -194,57 +198,13 @@ static lewgReturn_t lewgListKeys(void)
   return LEWG_SUCCESS;
 }
 
-static lewgReturn_t lewgUpdateLifeCycle(char* buffer)
-{
-  lewgReturn_t rv;
-  lewgLocalCode_t code;
-  char buf[256];
-
-  rv = lewgSanatizeCode(&buffer[0],&code);
-  LEWG_ENSURE_SUCCESS(rv);
-  
-  rv = lewgChangeDirectory("/srv/keys/user/");
-  LEWG_ENSURE_SUCCESS(rv);
-  
-  rv = lewgChangeDirectory(&code.code[0]);
-  LEWG_ENSURE_SUCCESS(rv);
-  
-  lewgFileHandle_t fh;
-  rv = lewgOpenFile(&fh, "lifecycle2","w+");
-  LEWG_ENSURE_SUCCESS(rv);
-
-  time_t begin, end;
-  while (lewgStdInReadln(&buf[0], 1024) == LEWG_SUCCESS)
-  {
-    if (memcmp("  ",&buf[0], 2) != 0)
-      continue;
-
-    // Check if the interval can be parsed...
-    rv = lewgParseInterval(&buf[2], &begin, &end);
-    if (rv == LEWG_ERROR)
-      continue;
-
-    lewgFilePrint(&fh, "%s", &buf[2]);
-  }
-
-  lewgCloseFile(&fh);
-
-  // create temporary file
-  // read from std in..
-
-  // rename lifecycle
-  // delete file
-
-
-  //parse std in lines and replace existing lifecyle file
-  return LEWG_SUCCESS;
-}
-
 static lewgReturn_t lewgGetComment(char* buffer)
 {
   lewgReturn_t rv;
   lewgLocalCode_t code;
   //uint8_t buf[256];
+  
+  lewgLogInfo("Get Comment Called\n");
 
   rv = lewgSanatizeCode(&buffer[0],&code);
   LEWG_ENSURE_SUCCESS(rv);
@@ -256,7 +216,7 @@ static lewgReturn_t lewgGetComment(char* buffer)
 }
 
 
-static lewgReturn_t lewgUpdateComment(char* buffer)
+static lewgReturn_t lewgSetLifeCycle(char* buffer)
 {
   lewgReturn_t rv;
   lewgLocalCode_t code;
@@ -271,31 +231,124 @@ static lewgReturn_t lewgUpdateComment(char* buffer)
   rv = lewgChangeDirectory(&code.code[0]);
   LEWG_ENSURE_SUCCESS(rv);
 
+  char tmpname[] = "lifecycle.XXXXXX";
   lewgFileHandle_t fh;
 
-  rv = lewgOpenFile(&fh, "comment","w+");
+  rv = lewgCreateTempFile(&fh,tmpname,"w+");
   LEWG_ENSURE_SUCCESS(rv);
-
+  
+  time_t begin, end;
   while (lewgStdInReadln(&buf[0], 1024) == LEWG_SUCCESS)
   {
+    // an unindented new line ends our protocol regulary...
+    if (memcmp("\n",&buf[0], 1) == 0)
+      break;
+
+    // ... everything else has to be indented.
     if (memcmp("  ",&buf[0], 2) != 0)
+      break;
+
+    // ... we also drop empty statements...
+    if (memcmp("  \n",&buf[0], 3) == 0)
       continue;
+
+    // Check if the interval can be parsed...
+    rv = lewgParseInterval(&buf[2], &begin, &end);
+    if (rv == LEWG_ERROR)
+    {
+      lewgLogInfo("Incompatilbe Timestamp %s",&buf[2]);
+      continue;
+    }
 
     lewgFilePrint(&fh, "%s", &buf[2]);
   }
 
   lewgCloseFile(&fh);
 
-  //open key directory
-  //parse std in lines and replace existing lifecyle file
+  lewgRenameFile(tmpname, "lifecycle");
+  
+  lewgLogInfo("Lifecycle for %s successfully updated \n", &code.code[0]);
+
   return LEWG_SUCCESS;
+}
+
+static lewgReturn_t lewgSetComment(char* buffer)
+{
+  lewgReturn_t rv;
+  lewgLocalCode_t code;
+  char buf[1024];
+
+  rv = lewgSanatizeCode(&buffer[0],&code);
+  LEWG_ENSURE_SUCCESS(rv);
+
+  rv = lewgChangeDirectory("/srv/keys/user/");
+  LEWG_ENSURE_SUCCESS(rv);
+
+  rv = lewgChangeDirectory(&code.code[0]);
+  LEWG_ENSURE_SUCCESS(rv);
+
+  char tmpname[] = "comment.XXXXXX";
+  lewgFileHandle_t fh;
+
+  rv = lewgCreateTempFile(&fh,tmpname,"w+");
+  LEWG_ENSURE_SUCCESS(rv);
+
+  while (lewgStdInReadln(&buf[0], 1024) == LEWG_SUCCESS)
+  {
+    // an unindented new line ends our protocol regulary...
+    if (memcmp("\n",&buf[0], 1) == 0)
+      break;
+
+    // ... everything else has to be indented.
+    if (memcmp("  ",&buf[0], 2) != 0)
+      break;
+
+    lewgFilePrint(&fh, "%s", &buf[2]);
+  }
+
+  lewgCloseFile(&fh);
+
+  lewgRenameFile(tmpname, "comment");
+
+  lewgLogInfo("Comment for %s successfully updated \n", &code.code[0]);
+
+  return LEWG_SUCCESS;
+}
+
+
+static lewgReturn_t lewgCreateCookie()
+{
+
+}
+
+static lewgReturn_t lewgGetCookie()
+{
+}
+
+static lewgReturn_t lewgDeleteCookie()
+{
+}
+
+
+static lewgReturn_t lwegCreateSession()
+{
+
+}
+
+static lewgReturn_t lewgGetSession()
+{
+
+}
+
+static lewgReturn_t lewgDeleteSession()
+{
+
 }
 
 lewgReturn_t onMeeetService()
 {
   lewgReturn_t rv;
-  
-  lewgLogInfo("Blubber\n");
+  char buf[1024];
 
   lewgStdOutPrint("HTTP/1.1 200 OK\r\n");
   lewgStdOutPrint("Content-Type: text/plain\r\n" );
@@ -303,32 +356,39 @@ lewgReturn_t onMeeetService()
 
 //  if getenv("REQUEST_METHOD") not equals "POST"
 //    return ERROR;
-  char buffer[80];
 
-  rv = lewgStdInReadln(&buffer[0], 80);
-  LEWG_ENSURE_SUCCESS(rv);
+  // Commands may be transmitted in a batch...
+  while (lewgStdInReadln(&buf[0], 1024) == LEWG_SUCCESS)
+  {
+    // We ignore white spaces...
+    if (lewgIsWhiteSpace(&buf[0]) == LEWG_SUCCESS)
+      continue;
 
+    if (memcmp("LIST\n", &buf[0], 5) == 0)
+      rv = lewgListKeys();
+    else if (memcmp("NEW ", &buf[0], 4) == 0)
+      rv = lewgNewKey(&buf[4]);
+    else if (memcmp("DELETE ", &buf[0], 7) == 0)
+      rv = lewgDeleteKey(&buf[7]);
+    else if (memcmp("SET LIFECYCLE ",&buf[0],14) == 0)
+      rv = lewgSetLifeCycle(&buf[14]);
+    else if (memcmp("GET LIFECYCLE ", &buf[0], 14) == 0)
+      rv = lewgGetLifeCycle(&buf[14]);
+    else if (memcmp("SET COMMENT ", &buf[0],12) == 0)
+      rv = lewgSetComment(&buf[12]);
+    else if (memcmp("GET COMMENT ", &buf[0] , 12) == 0)
+      rv = lewgGetComment(&buf[12]);
+    else
+    {
+      lewgLogInfo("Unknown command %s",&buf[0]);
+      return LEWG_ERROR;
+    }
 
-  if (memcmp(&buffer[0],"LIST\n", 5) == 0)
-    return lewgListKeys();
+    if (rv != LEWG_SUCCESS)
+      lewgLogInfo("Die with error %s",&buf[0]);
 
-  if (memcmp(&buffer[0],"NEW ", 4) == 0)
-    return lewgNewKey(&buffer[4]);
-
-  if (memcmp(&buffer[0],"DELETE ",7) == 0)
-    return lewgDeleteKey(&buffer[7]);
-
-  if (memcmp(&buffer[0],"GET LIFECYCLE ", 14) == 0)
-    return lewgGetLifeCycle(&buffer[14]);
-
-  if (memcmp(&buffer[0],"UPDATE LIFECYCLE ", 17) == 0)
-    return lewgUpdateLifeCycle(&buffer[17]);
-
-  if (memcmp(&buffer[0],"GET COMMENT ", 12) == 0)
-    return lewgGetComment(&buffer[12]);
-
-  if (memcmp(&buffer[0],"UPDATE COMMENT ", 15) == 0)
-    return lewgUpdateComment(&buffer[15]);
+    LEWG_ENSURE_SUCCESS(rv);
+  }
 
   return LEWG_SUCCESS;
 }

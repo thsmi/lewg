@@ -23,7 +23,7 @@ lewgReturn_t lewgIsComment(const char* buffer)
 lewgReturn_t lewgParseInterval(const char* buffer, time_t* begin, time_t* end)
 {
   lewgReturn_t rv = LEWG_ERROR;
-  
+
   struct tm timeBegin;
   struct tm timeEnd;
 
@@ -51,10 +51,11 @@ lewgReturn_t lewgParseInterval(const char* buffer, time_t* begin, time_t* end)
     return LEWG_SUCCESS;
   }
 
-  if ((buffer[39] == '\n') || (memcmp(" (GMT)\n",&buffer[39],7) == 0))
+
+  if (memcmp(" (LOCAL)\n",&buffer[39],9) == 0)
   {
-    *begin = timegm(&timeBegin);
-    *end = timegm(&timeEnd);
+    *begin = mktime(&timeBegin);
+    *end = mktime(&timeEnd);
 
     // ensure the dates could be converted...
     if ( (*begin == -1) || (*end == -1))

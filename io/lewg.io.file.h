@@ -8,6 +8,8 @@
 
   #include "./../utils/lewg.core.types.h"
   #include "./../utils/lewg.util.logger.h"
+  
+  #include <string.h>
 
   typedef struct {
     FILE* handle;
@@ -15,7 +17,10 @@
 
 
   lewgReturn_t lewgDeleteFile(const char* file);
+  lewgReturn_t lewgRenameFile(const char* old, const char* new);
   lewgReturn_t lewgChangeDirectory(const char* directory);
+
+  lewgReturn_t lewgCreateTempFile(lewgFileHandle_t* fh, char* template, const char* mode);
 
   lewgReturn_t lewgOpenFile(lewgFileHandle_t* fh, const char* file, const char* mode);
   lewgReturn_t lewgCloseFile(lewgFileHandle_t* fh);

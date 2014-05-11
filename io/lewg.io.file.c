@@ -1,5 +1,18 @@
 #include "lewg.io.file.h"
 
+lewgReturn_t lewgRenameFile(const char* old, const char* new)
+{
+  int rv;
+  
+  rv = rename(&old[0],&new[0]);
+
+  if (rv == 0)
+    return LEWG_SUCCESS;
+
+  lewgLogInfo(" Deleting file failed, error: %s ",strerror(errno));
+  return LEWG_ERROR;
+}
+
 lewgReturn_t lewgDeleteFile(const char* file)
 {
   int rv;
@@ -9,8 +22,32 @@ lewgReturn_t lewgDeleteFile(const char* file)
   if (rv == 0)
     return LEWG_SUCCESS;
 
+  lewgLogInfo(" Deleting file failed, error: %s ",strerror(errno));
   return LEWG_ERROR;
 }
+
+// the template needs to be an array, newver a constant...
+lewgReturn_t lewgCreateTempFile(lewgFileHandle_t* fh, char* template, const char* mode)
+{
+  int fd = mkstemp(&template[0]);
+
+  if (fd == -1) {
+    lewgLogInfo("Failed to generate temporary file\n");
+    
+    close(fd);
+    return LEWG_ERROR;
+  }
+
+  fh->handle = fdopen(fd,mode);
+
+  if (fh->handle <= 0) {
+    lewgLogInfo("Failed to open temporary file\n");
+    return LEWG_ERROR;
+  }
+
+  return LEWG_SUCCESS;
+}
+
 
 lewgReturn_t lewgOpenFile(lewgFileHandle_t* fh, const char* file, const char* mode)
 {
